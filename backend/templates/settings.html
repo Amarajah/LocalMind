@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Settings — LocalMind{% endblock %}
+{% block nav_settings %}active{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+
+  <div style="height:52px;background:#09090F;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 20px;flex-shrink:0;">
+    <span style="font-size:13px;font-weight:600;color:#E2E2F0;">Settings</span>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;padding:24px;">
+    <div style="max-width:520px;display:flex;flex-direction:column;gap:14px;">
+
+      <div id="saveMsg" style="display:none;padding:12px 16px;background:#50FA7B14;border:1px solid #50FA7B30;border-radius:10px;font-size:12px;color:#50FA7B;">
+        ✓ Settings saved successfully.
+      </div>
+
+      <!-- Ollama Host -->
+      <div style="background:#13131F;border:1px solid #1E1E30;border-radius:12px;padding:20px;">
+        <label style="font-size:12px;font-weight:600;color:#9898B8;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:10px;">Ollama Host</label>
+        <input id="ollamaHost" type="text" value="http://host.docker.internal:11434"
+               style="width:100%;font-size:12px;padding:8px 12px;background:#0F0F17;border:1px solid #2D2D45;color:#E2E2F0;border-radius:8px;outline:none;"/>
+        <p style="font-size:11px;color:#6B6B8A;margin-top:8px;">Default: http://host.docker.internal:11434</p>
+      </div>
+
+      <!-- Default Model -->
+      <div style="background:#13131F;border:1px solid #1E1E30;border-radius:12px;padding:20px;">
+        <label style="font-size:12px;font-weight:600;color:#9898B8;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:10px;">Default Model</label>
+        <select id="defaultModel" style="width:100%;font-size:12px;padding:8px 12px;background:#0F0F17;border:1px solid #2D2D45;color:#E2E2F0;border-radius:8px;outline:none;cursor:pointer;">
+          <option>Loading models...</option>
+        </select>
+      </div>
+
+      <!-- Default Mode -->
+      <div style="background:#13131F;border:1px solid #1E1E30;border-radius:12px;padding:20px;">
+        <label style="font-size:12px;font-weight:600;color:#9898B8;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:10px;">Default Task Mode</label>
+        <select id="defaultMode" style="width:100%;font-size:12px;padding:8px 12px;background:#0F0F17;border:1px solid #2D2D45;color:#E2E2F0;border-radius:8px;outline:none;cursor:pointer;">
+          <option value="chat">💬 Chat</option>
+          <option value="explain">🔍 Explain Code</option>
+          <option value="test">🧪 Write Tests</option>
+          <option value="docstring">📝 Generate Docstrings</option>
+          <option value="review">👁 Code Review</option>
+          <option value="pr_review">🔀 PR Review</option>
+        </select>
+      </div>
+
+      <!-- Verbosity -->
+      <div style="background:#13131F;border:1px solid #1E1E30;border-radius:12px;padding:20px;">
+        <label style="font-size:12px;font-weight:600;color:#9898B8;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:10px;">Response Verbosity</label>
+        <select id="verbosity" style="width:100%;font-size:12px;padding:8px 12px;background:#0F0F17;border:1px solid #2D2D45;color:#E2E2F0;border-radius:8px;outline:none;cursor:pointer;">
+          <option value="concise">Concise — short and direct</option>
+          <option value="detailed">Detailed — thorough explanation</option>
+          <option value="step_by_step">Step by step — numbered walkthrough</option>
+        </select>
+      </div>
+
+      <button onclick="saveSettings()" style="font-size:13px;padding:10px;background:#7C6FE0;border:none;color:white;border-radius:10px;cursor:pointer;font-weight:500;width:100%;">
+        Save Settings
+      </button>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded',async()=>{
+  const[sr,mr]=await Promise.all([fetch('/api/assistant/settings/'),fetch('/api/assistant/models/')]);
+  const s=await sr.json();const m=await mr.json();
+  if(m.success){
+    document.getElementById('defaultModel').innerHTML=m.models.map(x=>`<option value="${x.name}">${x.name}</option>`).join('');
+  }
+  if(s.success){
+    const st=s.settings;
+    if(st.ollama_host)document.getElementById('ollamaHost').value=st.ollama_host;
+    if(st.default_model)document.getElementById('defaultModel').value=st.default_model;
+    if(st.default_mode)document.getElementById('defaultMode').value=st.default_mode;
+    if(st.verbosity)document.getElementById('verbosity').value=st.verbosity;
+  }
+});
+
+async function saveSettings(){
+  await fetch('/api/assistant/settings/update/',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      ollama_host:document.getElementById('ollamaHost').value,
+      default_model:document.getElementById('defaultModel').value,
+      default_mode:document.getElementById('defaultMode').value,
+      verbosity:document.getElementById('verbosity').value,
+    }),
+  });
+  const m=document.getElementById('saveMsg');
+  m.style.display='block';setTimeout(()=>m.style.display='none',3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}PR Review — LocalMind{% endblock %}
+{% block nav_pr %}active{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;height:100vh;overflow:hidden;">
+
+  <!-- Left: input -->
+  <div style="width:48%;min-width:0;display:flex;flex-direction:column;border-right:1px solid #1E1E30;">
+
+    <div style="height:52px;background:#09090F;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;">
+      <span style="font-size:13px;font-weight:600;color:#E2E2F0;">PR Review</span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:#7C6FE018;color:#7C6FE0;font-weight:500;">git diff</span>
+      <div style="flex:1;"></div>
+      <select id="prModelSelect" style="font-size:12px;padding:5px 10px;background:#1E1E30;border:1px solid #2D2D45;color:#E2E2F0;border-radius:8px;outline:none;cursor:pointer;">
+        <option>Loading models...</option>
+      </select>
+    </div>
+
+    <div style="height:36px;background:#0F0F17;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 16px;flex-shrink:0;">
+      <p style="font-size:11px;color:#6B6B8A;">Paste your <code style="color:#8BE9FD;background:#1E1E30;padding:1px 5px;border-radius:4px;">git diff</code> output below · Cmd+Enter to review</p>
+    </div>
+
+    <div style="flex:1;position:relative;overflow:hidden;">
+      <div id="prEditor" style="position:absolute;inset:0;"></div>
+    </div>
+
+    <div style="height:52px;background:#09090F;border-top:1px solid #1E1E30;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;">
+      <div id="prStatusDot" style="width:7px;height:7px;border-radius:50%;background:#50FA7B;flex-shrink:0;"></div>
+      <span id="prStatusText" style="font-size:11px;color:#6B6B8A;">Ready</span>
+      <div style="flex:1;"></div>
+      <button id="prStopBtn" onclick="stopPRStream()" style="display:none;font-size:12px;padding:6px 14px;background:#FF555514;border:1px solid #FF555530;color:#FF5555;border-radius:9px;cursor:pointer;">■ Stop</button>
+      <button id="prSubmitBtn" onclick="submitPRReview()" style="font-size:13px;padding:7px 20px;background:#7C6FE0;border:none;color:white;border-radius:9px;cursor:pointer;font-weight:500;">Review PR ↵</button>
+    </div>
+  </div>
+
+  <!-- Right: output -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+    <div style="height:52px;background:#09090F;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 16px;gap:8px;flex-shrink:0;">
+      <span style="font-size:12px;color:#6B6B8A;font-weight:500;">Review Output</span>
+      <div style="flex:1;"></div>
+      <span id="prDuration" style="font-size:11px;color:#6B6B8A;display:none;"></span>
+      <button id="prCopyBtn" onclick="copyPRResponse()" style="display:none;font-size:11px;padding:4px 10px;background:#1E1E30;border:1px solid #2D2D45;color:#9898B8;border-radius:7px;cursor:pointer;">Copy</button>
+    </div>
+
+    <div id="prRespBody" style="flex:1;overflow-y:auto;padding:24px;">
+      <div id="prEmpty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:#1E1E30;display:flex;align-items:center;justify-content:center;font-size:26px;">🔀</div>
+        <p style="font-size:14px;color:#9898B8;">Paste a git diff and click Review PR</p>
+        <p style="font-size:12px;color:#6B6B8A;text-align:center;max-width:300px;line-height:1.6;">Run <code style="color:#8BE9FD;background:#1E1E30;padding:1px 5px;border-radius:4px;">git diff main..your-branch</code> in your terminal and paste the output here</p>
+      </div>
+      <div id="prContent" style="display:none;" class="pr-prose"></div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.pr-prose{color:#E2E2F0;font-size:13px;line-height:1.75;}
+.pr-prose h1,.pr-prose h2,.pr-prose h3{color:#E2E2F0;margin:1.2em 0 0.5em;font-weight:600;}
+.pr-prose h2{font-size:15px;border-bottom:1px solid #1E1E30;padding-bottom:6px;}
+.pr-prose h3{font-size:13px;}
+.pr-prose p{margin-bottom:0.9em;}
+.pr-prose code{color:#8BE9FD;background:#1E1E30;padding:1px 5px;border-radius:4px;font-size:12px;}
+.pr-prose pre{background:#0F0F17;border:1px solid #2D2D45;border-radius:10px;padding:14px;overflow-x:auto;margin:0.8em 0;}
+.pr-prose pre code{background:none;padding:0;color:#E2E2F0;font-size:12px;}
+.pr-prose strong{color:#E2E2F0;}
+.pr-prose ul,.pr-prose ol{padding-left:1.4em;margin-bottom:0.9em;}
+.pr-prose li{margin-bottom:0.3em;}
+.pr-prose blockquote{border-left:3px solid #7C6FE0;padding-left:12px;color:#9898B8;margin:0.8em 0;}
+.streaming-cursor::after{content:'▋';animation:blink 1s step-end infinite;color:#7C6FE0;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+#prRespBody::-webkit-scrollbar{width:5px;}
+#prRespBody::-webkit-scrollbar-thumb{background:#2D2D45;border-radius:3px;}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let prEditor=null,prWs=null,prStreaming=false,prRawText='';
+
+document.addEventListener('DOMContentLoaded',()=>{initPREditor();loadPRModels();connectPRWS();});
+
+function initPREditor(){
+  require.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'}});
+  require(['vs/editor/editor.main'],()=>{
+    monaco.editor.defineTheme('lm',{base:'vs-dark',inherit:true,rules:[],colors:{
+      'editor.background':'#0F0F17','editor.foreground':'#E2E2F0',
+      'editorLineNumber.foreground':'#2D2D45','editorCursor.foreground':'#7C6FE0',
+    }});
+    prEditor=monaco.editor.create(document.getElementById('prEditor'),{
+      value:'',language:'diff',theme:'lm',fontSize:12,
+      fontFamily:'JetBrains Mono,Fira Code,monospace',
+      minimap:{enabled:false},wordWrap:'on',automaticLayout:true,padding:{top:16},
+    });
+    prEditor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.Enter,submitPRReview);
+  });
+}
+
+async function loadPRModels(){
+  const r=await fetch('/api/assistant/models/');
+  const d=await r.json();
+  const s=document.getElementById('prModelSelect');
+  if(d.success&&d.models.length>0)
+    s.innerHTML=d.models.map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
+}
+
+function connectPRWS(){
+  const p=location.protocol==='https:'?'wss:':'ws:';
+  prWs=new WebSocket(`${p}//${location.host}/ws/chat/`);
+  prWs.onclose=()=>setTimeout(connectPRWS,3000);
+  prWs.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.type==='stream_start'){
+      prStreaming=true;prRawText='';
+      document.getElementById('prEmpty').style.display='none';
+      const c=document.getElementById('prContent');
+      c.style.display='block';c.className='pr-prose streaming-cursor';c.innerHTML='';
+      document.getElementById('prStopBtn').style.display='block';
+      document.getElementById('prSubmitBtn').disabled=true;
+      setPRStatus('busy','Reviewing...');
+    }else if(msg.type==='token'){
+      prRawText+=msg.content;
+      const c=document.getElementById('prContent');
+      c.innerHTML=marked.parse(prRawText);
+      c.querySelectorAll('pre code').forEach(b=>hljs.highlightElement(b));
+      document.getElementById('prRespBody').scrollTop=99999;
+    }else if(msg.type==='done'){
+      prStreaming=false;
+      document.getElementById('prContent').className='pr-prose';
+      document.getElementById('prStopBtn').style.display='none';
+      document.getElementById('prSubmitBtn').disabled=false;
+      document.getElementById('prCopyBtn').style.display='block';
+      const dur=document.getElementById('prDuration');
+      dur.style.display='block';dur.textContent=`${(msg.duration_ms/1000).toFixed(1)}s`;
+      setPRStatus('online','Done');
+    }else if(msg.type==='error'){
+      prStreaming=false;
+      document.getElementById('prStopBtn').style.display='none';
+      document.getElementById('prSubmitBtn').disabled=false;
+      document.getElementById('prEmpty').style.display='none';
+      document.getElementById('prContent').style.display='block';
+      document.getElementById('prContent').innerHTML=`<div style="padding:14px;background:#FF555514;border:1px solid #FF555530;border-radius:10px;color:#FF5555;font-size:13px;">⚠️ ${msg.message}</div>`;
+      setPRStatus('offline','Error');
+    }
+  };
+}
+
+function submitPRReview(){
+  if(prStreaming||!prWs||prWs.readyState!==WebSocket.OPEN)return;
+  const diff=prEditor?prEditor.getValue().trim():'';
+  if(!diff){alert('Please paste a git diff first.');return;}
+  prWs.send(JSON.stringify({type:'query',mode:'pr_review',code:diff,model:document.getElementById('prModelSelect').value,verbosity:'detailed'}));
+}
+
+function stopPRStream(){
+  if(prWs&&prWs.readyState===WebSocket.OPEN)prWs.send(JSON.stringify({type:'stop'}));
+}
+
+function copyPRResponse(){
+  navigator.clipboard.writeText(prRawText).then(()=>{
+    const b=document.getElementById('prCopyBtn');b.textContent='Copied!';
+    setTimeout(()=>b.textContent='Copy',2000);
+  });
+}
+
+function setPRStatus(state,text){
+  const colors={online:'#50FA7B',offline:'#FF5555',busy:'#FFB86C'};
+  document.getElementById('prStatusDot').style.background=colors[state]||'#9898B8';
+  document.getElementById('prStatusText').textContent=text;
+}
+</script>
+{% endblock %}

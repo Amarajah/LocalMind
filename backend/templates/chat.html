@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Chat — LocalMind{% endblock %}
+{% block nav_chat %}active{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;height:100vh;overflow:hidden;min-width:0;">
+
+  <!-- Left panel -->
+  <div style="width:48%;min-width:0;display:flex;flex-direction:column;border-right:1px solid #1E1E30;">
+
+    <!-- Topbar -->
+    <div style="height:52px;background:#09090F;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;">
+      <span style="font-size:13px;font-weight:600;color:#E2E2F0;">LocalMind</span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:#7C6FE018;color:#7C6FE0;font-weight:500;">Local AI</span>
+      <div style="flex:1;"></div>
+      <select id="modelSelect" style="font-size:12px;padding:5px 10px;background:#1E1E30;border:1px solid #2D2D45;color:#E2E2F0;border-radius:8px;outline:none;cursor:pointer;">
+        <option>Loading models...</option>
+      </select>
+      <button onclick="newChat()" style="font-size:12px;padding:5px 12px;background:transparent;border:1px solid #2D2D45;color:#9898B8;border-radius:8px;cursor:pointer;">New chat</button>
+    </div>
+
+    <!-- Mode bar -->
+    <div id="modebar" style="height:44px;background:#0F0F17;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 12px;gap:4px;overflow-x:auto;flex-shrink:0;"></div>
+
+    <!-- Options bar -->
+    <div id="optbar" style="height:40px;background:#0F0F17;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;">
+      <select id="languageSelect" style="font-size:11px;padding:4px 8px;background:#1E1E30;border:1px solid #2D2D45;color:#9898B8;border-radius:7px;outline:none;">
+        <option value="">Auto-detect language</option>
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+        <option value="typescript">TypeScript</option>
+        <option value="php">PHP</option>
+        <option value="java">Java</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+        <option value="sql">SQL</option>
+        <option value="bash">Bash</option>
+        <option value="html">HTML</option>
+        <option value="css">CSS</option>
+      </select>
+      <select id="verbositySelect" style="font-size:11px;padding:4px 8px;background:#1E1E30;border:1px solid #2D2D45;color:#9898B8;border-radius:7px;outline:none;">
+        <option value="concise">Concise</option>
+        <option value="detailed" selected>Detailed</option>
+        <option value="step_by_step">Step by step</option>
+      </select>
+    </div>
+
+    <!-- Monaco Editor -->
+    <div style="flex:1;position:relative;overflow:hidden;">
+      <div id="editor" style="position:absolute;inset:0;"></div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div style="height:52px;background:#09090F;border-top:1px solid #1E1E30;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;">
+      <div id="statusDot" style="width:7px;height:7px;border-radius:50%;background:#50FA7B;flex-shrink:0;"></div>
+      <span id="statusText" style="font-size:11px;color:#6B6B8A;">Ready</span>
+      <div style="flex:1;"></div>
+      <button id="stopBtn" onclick="stopStream()" style="display:none;font-size:12px;padding:6px 14px;background:#FF555514;border:1px solid #FF555530;color:#FF5555;border-radius:9px;cursor:pointer;">■ Stop</button>
+      <button id="submitBtn" onclick="submitQuery()" style="font-size:13px;padding:7px 20px;background:#7C6FE0;border:none;color:white;border-radius:9px;cursor:pointer;font-weight:500;">Run ↵</button>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+    <!-- Response topbar -->
+    <div style="height:52px;background:#09090F;border-bottom:1px solid #1E1E30;display:flex;align-items:center;padding:0 16px;gap:8px;flex-shrink:0;">
+      <span style="font-size:12px;color:#6B6B8A;font-weight:500;">Response</span>
+      <div style="flex:1;"></div>
+      <button id="copyBtn" onclick="copyResponse()" style="display:none;font-size:11px;padding:4px 10px;background:#1E1E30;border:1px solid #2D2D45;color:#9898B8;border-radius:7px;cursor:pointer;">Copy</button>
+      <button id="saveBtn" onclick="saveSnippet()" style="display:none;font-size:11px;padding:4px 10px;background:#1E1E30;border:1px solid #2D2D45;color:#9898B8;border-radius:7px;cursor:pointer;">Save snippet</button>
+    </div>
+
+    <!-- Response body -->
+    <div id="respBody" style="flex:1;overflow-y:auto;padding:24px;">
+      <div id="emptyState" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:#1E1E30;display:flex;align-items:center;justify-content:center;font-size:26px;">🧠</div>
+        <p style="font-size:14px;color:#9898B8;">Paste code and hit Run</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+          <span style="font-size:11px;padding:5px 12px;background:#1E1E30;border:1px solid #2D2D45;border-radius:20px;color:#6B6B8A;">Explain code</span>
+          <span style="font-size:11px;padding:5px 12px;background:#1E1E30;border:1px solid #2D2D45;border-radius:20px;color:#6B6B8A;">Write tests</span>
+          <span style="font-size:11px;padding:5px 12px;background:#1E1E30;border:1px solid #2D2D45;border-radius:20px;color:#6B6B8A;">Docstrings</span>
+          <span style="font-size:11px;padding:5px 12px;background:#1E1E30;border:1px solid #2D2D45;border-radius:20px;color:#6B6B8A;">Code review</span>
+        </div>
+      </div>
+      <div id="respContent" style="display:none;" class="prose"></div>
+    </div>
+
+    <!-- Response footer -->
+    <div id="respFooter" style="display:none;height:36px;background:#09090F;border-top:1px solid #1E1E30;display:flex;align-items:center;padding:0 16px;gap:16px;">
+      <span id="footerModel" style="font-size:11px;color:#6B6B8A;"></span>
+      <span id="footerChars" style="font-size:11px;color:#6B6B8A;"></span>
+      <span id="footerTime" style="font-size:11px;color:#6B6B8A;"></span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MODES=[['chat','💬 Chat'],['explain','🔍 Explain'],['test','🧪 Tests'],['docstring','📝 Docstring'],['review','👁 Review'],['pr_review','🔀 PR Review']];
+let currentMode='chat',monacoEditor=null,ws=null,isStreaming=false,conversationHistory=[],rawText='';
+
+document.addEventListener('DOMContentLoaded',()=>{
+  buildModes();setMode('chat');initMonaco();loadModels();connectWS();
+});
+
+function buildModes(){
+  const bar=document.getElementById('modebar');
+  MODES.forEach(([m,l])=>{
+    const b=document.createElement('button');
+    b.id=`mode-${m}`;b.textContent=l;
+    b.style.cssText='font-size:11px;padding:5px 11px;border-radius:7px;background:transparent;border:none;color:#6B6B8A;cursor:pointer;white-space:nowrap;';
+    b.onclick=()=>setMode(m);
+    bar.appendChild(b);
+  });
+}
+
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('#modebar button').forEach(b=>{
+    b.style.background='transparent';b.style.color='#6B6B8A';
+  });
+  const a=document.getElementById(`mode-${m}`);
+  if(a){a.style.background='#7C6FE018';a.style.color='#7C6FE0';}
+  document.getElementById('optbar').style.display=m==='chat'?'none':'flex';
+}
+
+function initMonaco(){
+  require.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'}});
+  require(['vs/editor/editor.main'],()=>{
+    monaco.editor.defineTheme('lm',{base:'vs-dark',inherit:true,rules:[],colors:{
+      'editor.background':'#0F0F17','editor.foreground':'#E2E2F0',
+      'editorLineNumber.foreground':'#2D2D45','editor.selectionBackground':'#7C6FE030',
+      'editor.lineHighlightBackground':'#1A1A28','editorCursor.foreground':'#7C6FE0',
+    }});
+    monacoEditor=monaco.editor.create(document.getElementById('editor'),{
+      value:'',language:'python',theme:'lm',fontSize:13,
+      fontFamily:'JetBrains Mono,Fira Code,monospace',
+      minimap:{enabled:false},scrollBeyondLastLine:false,
+      wordWrap:'on',lineNumbers:'on',automaticLayout:true,
+      padding:{top:16,bottom:16},
+    });
+    monacoEditor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.Enter,submitQuery);
+    document.getElementById('languageSelect').addEventListener('change',e=>{
+      if(e.target.value&&monacoEditor)
+        monaco.editor.setModelLanguage(monacoEditor.getModel(),e.target.value);
+    });
+  });
+}
+
+async function loadModels(){
+  try{
+    const r=await fetch('/api/assistant/models/');
+    const d=await r.json();
+    const s=document.getElementById('modelSelect');
+    if(d.success&&d.models.length>0){
+      s.innerHTML=d.models.map(m=>`<option value="${m.name}">${m.name} (${m.size_gb}GB)</option>`).join('');
+      setStatus('online','Ollama online');
+    }else{s.innerHTML='<option>No models</option>';setStatus('offline','No models');}
+  }catch(e){setStatus('offline','Ollama offline');}
+}
+
+function connectWS(){
+  const p=location.protocol==='https:'?'wss:':'ws:';
+  ws=new WebSocket(`${p}//${location.host}/ws/chat/`);
+  ws.onopen=()=>setStatus('online','Ready');
+  ws.onclose=()=>{setStatus('offline','Reconnecting...');setTimeout(connectWS,3000);};
+  ws.onerror=()=>setStatus('offline','Connection error');
+  ws.onmessage=e=>handleMsg(JSON.parse(e.data));
+}
+
+function handleMsg(msg){
+  if(msg.type==='connected'){setStatus('online','Ready');return;}
+  if(msg.type==='stream_start'){
+    isStreaming=true;rawText='';
+    document.getElementById('emptyState').style.display='none';
+    const c=document.getElementById('respContent');
+    c.style.display='block';c.className='prose streaming-cursor';c.innerHTML='';
+    document.getElementById('stopBtn').style.display='block';
+    document.getElementById('submitBtn').disabled=true;
+    setStatus('busy','Generating...');return;
+  }
+  if(msg.type==='token'){
+    rawText+=msg.content;
+    const c=document.getElementById('respContent');
+    c.innerHTML=marked.parse(rawText);
+    c.querySelectorAll('pre code').forEach(b=>hljs.highlightElement(b));
+    document.getElementById('respBody').scrollTop=99999;return;
+  }
+  if(msg.type==='done'){
+    isStreaming=false;
+    const c=document.getElementById('respContent');
+    c.className='prose';
+    document.getElementById('stopBtn').style.display='none';
+    document.getElementById('submitBtn').disabled=false;
+    document.getElementById('copyBtn').style.display='block';
+    document.getElementById('saveBtn').style.display='block';
+    const f=document.getElementById('respFooter');f.style.display='flex';
+    document.getElementById('footerModel').textContent=`Model: ${msg.model}`;
+    document.getElementById('footerChars').textContent=`${msg.total_chars} chars`;
+    document.getElementById('footerTime').textContent=`${(msg.duration_ms/1000).toFixed(1)}s`;
+    setStatus('online','Done');
+    if(monacoEditor){
+      conversationHistory.push({role:'user',content:monacoEditor.getValue()});
+      conversationHistory.push({role:'assistant',content:rawText});
+    }
+    return;
+  }
+  if(msg.type==='error'){
+    isStreaming=false;
+    document.getElementById('stopBtn').style.display='none';
+    document.getElementById('submitBtn').disabled=false;
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('respContent').style.display='block';
+    document.getElementById('respContent').innerHTML=`<div style="padding:14px;background:#FF555514;border:1px solid #FF555530;border-radius:10px;color:#FF5555;font-size:13px;">⚠️ ${msg.message}</div>`;
+    setStatus('offline','Error');
+  }
+}
+
+function submitQuery(){
+  if(isStreaming)return;
+  if(!ws||ws.readyState!==WebSocket.OPEN){connectWS();return;}
+  const code=monacoEditor?monacoEditor.getValue().trim():'';
+  if(!code&&currentMode!=='chat'){
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('respContent').style.display='block';
+    document.getElementById('respContent').innerHTML='<div style="padding:14px;background:#FF555514;border:1px solid #FF555530;border-radius:10px;color:#FF5555;font-size:13px;">⚠️ Please paste some code first.</div>';
+    return;
+  }
+  ws.send(JSON.stringify({
+    type:'query',mode:currentMode,code,
+    language:document.getElementById('languageSelect').value,
+    verbosity:document.getElementById('verbositySelect').value,
+    model:document.getElementById('modelSelect').value,
+    conversation_history:currentMode==='chat'?conversationHistory:[],
+  }));
+}
+
+function stopStream(){
+  if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'stop'}));
+}
+
+function newChat(){
+  conversationHistory=[];rawText='';
+  if(monacoEditor)monacoEditor.setValue('');
+  document.getElementById('emptyState').style.display='flex';
+  document.getElementById('respContent').style.display='none';
+  document.getElementById('respContent').innerHTML='';
+  document.getElementById('respFooter').style.display='none';
+  document.getElementById('copyBtn').style.display='none';
+  document.getElementById('saveBtn').style.display='none';
+}
+
+function copyResponse(){
+  navigator.clipboard.writeText(rawText).then(()=>{
+    const b=document.getElementById('copyBtn');b.textContent='Copied!';
+    setTimeout(()=>b.textContent='Copy',2000);
+  });
+}
+
+async function saveSnippet(){
+  const title=prompt('Snippet title:','Untitled snippet');if(!title)return;
+  const lang=document.getElementById('languageSelect').value||'other';
+  const sourceCode=monacoEditor?monacoEditor.getValue():'';
+  const r=await fetch('/api/snippets/create/',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      title,
+      language:lang,
+      content:rawText,
+      source_code:sourceCode,
+      task_mode:currentMode,
+    }),
+  });
+  const d=await r.json();
+  if(d.success){const b=document.getElementById('saveBtn');b.textContent='Saved!';setTimeout(()=>b.textContent='Save snippet',2000);}
+}
+
+function setStatus(state,text){
+  const colors={online:'#50FA7B',offline:'#FF5555',busy:'#FFB86C'};
+  document.getElementById('statusDot').style.background=colors[state]||'#9898B8';
+  document.getElementById('statusText').textContent=text;
+}
+</script>
+
+<style>
+.prose{color:#E2E2F0;font-size:13px;line-height:1.75;}
+.prose h1,.prose h2,.prose h3,.prose h4{color:#E2E2F0;margin:1.2em 0 0.5em;font-weight:600;}
+.prose h2{font-size:15px;}.prose h3{font-size:13px;}
+.prose p{margin-bottom:0.9em;}
+.prose code{color:#8BE9FD;background:#1E1E30;padding:1px 5px;border-radius:4px;font-size:12px;}
+.prose pre{background:#1A1A28;border:1px solid #2D2D45;border-radius:10px;padding:14px;overflow-x:auto;margin:0.8em 0;}
+.prose pre code{background:none;padding:0;color:#E2E2F0;font-size:12px;}
+.prose strong{color:#E2E2F0;}.prose a{color:#7C6FE0;}
+.prose ul,.prose ol{padding-left:1.4em;margin-bottom:0.9em;}
+.prose li{margin-bottom:0.3em;}
+.prose blockquote{border-left:3px solid #7C6FE0;padding-left:12px;color:#9898B8;margin:0.8em 0;}
+.streaming-cursor::after{content:'▋';animation:blink 1s step-end infinite;color:#7C6FE0;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+#respBody::-webkit-scrollbar{width:5px;}
+#respBody::-webkit-scrollbar-thumb{background:#2D2D45;border-radius:3px;}
+</style>
+{% endblock %}

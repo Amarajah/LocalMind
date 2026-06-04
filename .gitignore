@@ -216,3 +216,28 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+node_modules
+
+# Node
+backend/node_modules/
+backend/package-lock.json
+
+# Compiled CSS (generated from source)
+backend/static/css/output.css
+backend/staticfiles/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+backend/venv/
+venv/
+
+# Environment
+.env
+
+# macOS
+.DS_Store
+
+# Docker volumes
+postgres_data/

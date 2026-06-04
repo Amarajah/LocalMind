@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}LocalMind{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}"/>
+  {% block extra_head %}{% endblock %}
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#0F0F17;color:#E2E2F0;font-family:'Inter',system-ui,sans-serif;height:100vh;display:flex;overflow:hidden;}
+    ::-webkit-scrollbar{width:5px;height:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:#2D2D45;border-radius:3px;}
+    .nav-icon{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#6B6B8A;transition:all 0.15s;text-decoration:none;font-size:18px;}
+    .nav-icon:hover{background:#1E1E30;color:#E2E2F0;}
+    .nav-icon.active{background:#7C6FE018;color:#7C6FE0;}
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside style="width:56px;background:#09090F;border-right:1px solid #1E1E30;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;flex-shrink:0;">
+    <a href="/" style="width:36px;height:36px;background:#7C6FE0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:white;text-decoration:none;margin-bottom:10px;flex-shrink:0;">L</a>
+    <a href="/" class="nav-icon {% block nav_chat %}{% endblock %}" title="Chat">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+    </a>
+    <a href="/models/" class="nav-icon {% block nav_models %}{% endblock %}" title="Models" target="_blank">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16M9 11h6"/></svg>
+    </a>
+    <a href="/snippets/" class="nav-icon {% block nav_snippets %}{% endblock %}" title="Snippets" target="_blank">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+    </a>
+    <a href="/pr-review/" class="nav-icon {% block nav_pr %}{% endblock %}" title="PR Review" target="_blank">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    </a>
+    <div style="flex:1;"></div>
+    <a href="/settings/" class="nav-icon {% block nav_settings %}{% endblock %}" title="Settings" target="_blank">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </a>
+  </aside>
+
+  <main style="flex:1;display:flex;flex-direction:column;min-height:100vh;overflow:hidden;">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
