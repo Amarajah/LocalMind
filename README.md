@@ -131,7 +131,7 @@ REDIS_URL=redis://redis:6379/0
 OLLAMA_HOST=http://host.docker.internal:11434
 
 DB_HOST=db
-DB_PORT=0000
+DB_PORT=5432
 ```
 
 ### 3. Build the CSS
